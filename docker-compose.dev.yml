@@ -1,0 +1,62 @@
+version: '3.8'
+
+# Development overrides - mount source code for hot reload
+
+services:
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+      target: builder
+    volumes:
+      - ./services/api-gateway/src:/app/src
+    command: npm run dev
+
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+      target: builder
+    volumes:
+      - ./services/user-service/src:/app/src
+      - ./services/user-service/prisma:/app/prisma
+    command: npm run dev
+
+  product-service:
+    build:
+      context: ./services/product-service
+      dockerfile: Dockerfile
+      target: builder
+    volumes:
+      - ./services/product-service/src:/app/src
+      - ./services/product-service/prisma:/app/prisma
+    command: npm run dev
+
+  cart-service:
+    build:
+      context: ./services/cart-service
+      dockerfile: Dockerfile
+      target: builder
+    volumes:
+      - ./services/cart-service/src:/app/src
+    command: npm run dev
+
+  payment-service:
+    build:
+      context: ./services/payment-service
+      dockerfile: Dockerfile
+      target: builder
+    volumes:
+      - ./services/payment-service/src:/app/src
+      - ./services/payment-service/prisma:/app/prisma
+    command: npm run dev
+
+  order-service:
+    build:
+      context: ./services/order-service
+      dockerfile: Dockerfile
+      target: builder
+    volumes:
+      - ./services/order-service/src:/app/src
+      - ./services/order-service/prisma:/app/prisma
+    command: npm run dev
