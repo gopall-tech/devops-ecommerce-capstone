@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Order {
+  id              String         @id @default(uuid())
+  userId          String         @map("user_id")
+  status          String         @default("pending")
+  subtotal        Float
+  tax             Float
+  shipping        Float
+  total           Float
+  shippingAddress Json           @map("shipping_address")
+  billingAddress  Json           @map("billing_address")
+  notes           String?
+  trackingNumber  String?        @map("tracking_number")
+  carrier         String?
+  shippedAt       DateTime?      @map("shipped_at")
+  deliveredAt     DateTime?      @map("delivered_at")
+  items           OrderItem[]
+  statusHistory   StatusHistory[]
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String @id @default(uuid())
+  orderId     String @map("order_id")
+  order       Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String @map("product_id")
+  productName String @map("product_name")
+  quantity    Int
+  price       Float
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model StatusHistory {
+  id        String   @id @default(uuid())
+  orderId   String   @map("order_id")
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    String
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([orderId])
+  @@map("status_history")
+}
