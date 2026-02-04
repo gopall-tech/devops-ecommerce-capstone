@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Payment {
+  id                    String    @id @default(uuid())
+  userId                String    @map("user_id")
+  orderId               String    @map("order_id")
+  amount                Float
+  currency              String    @default("usd")
+  status                String    @default("pending")
+  stripePaymentIntentId String?   @unique @map("stripe_payment_intent_id")
+  errorMessage          String?   @map("error_message")
+  refunds               Refund[]
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([orderId])
+  @@index([status])
+  @@map("payments")
+}
+
+model Refund {
+  id             String   @id @default(uuid())
+  paymentId      String   @map("payment_id")
+  payment        Payment  @relation(fields: [paymentId], references: [id])
+  amount         Float
+  stripeRefundId String?  @map("stripe_refund_id")
+  reason         String?
+  status         String   @default("pending")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([paymentId])
+  @@map("refunds")
+}
+
+model StripeCustomer {
+  id               String   @id @default(uuid())
+  userId           String   @unique @map("user_id")
+  stripeCustomerId String   @unique @map("stripe_customer_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("stripe_customers")
+}
