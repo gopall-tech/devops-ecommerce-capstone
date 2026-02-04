@@ -1,0 +1,47 @@
+// Prisma schema for User Service
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String         @id @default(uuid())
+  email               String         @unique
+  password            String
+  firstName           String         @map("first_name")
+  lastName            String         @map("last_name")
+  phone               String?
+  role                String         @default("user")
+  isActive            Boolean        @default(true) @map("is_active")
+  isEmailVerified     Boolean        @default(false) @map("is_email_verified")
+  verificationToken   String?        @map("verification_token")
+  verificationExpiry  DateTime?      @map("verification_expiry")
+  resetToken          String?        @map("reset_token")
+  resetTokenExpiry    DateTime?      @map("reset_token_expiry")
+  lastLogin           DateTime?      @map("last_login")
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
+  deletedAt           DateTime?      @map("deleted_at")
+  refreshTokens       RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isRevoked Boolean  @default(false) @map("is_revoked")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
