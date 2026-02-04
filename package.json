@@ -1,0 +1,40 @@
+{
+  "name": "devops-ecommerce-capstone",
+  "version": "1.0.0",
+  "description": "Production-ready e-commerce platform with complete DevOps automation",
+  "private": true,
+  "workspaces": [
+    "services/*"
+  ],
+  "scripts": {
+    "dev": "docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build",
+    "dev:down": "docker-compose -f docker-compose.yml -f docker-compose.dev.yml down",
+    "start": "docker-compose up -d",
+    "stop": "docker-compose down",
+    "build": "docker-compose build",
+    "logs": "docker-compose logs -f",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "migrate": "npm run migrate --workspaces --if-present",
+    "seed": "npm run seed --workspaces --if-present",
+    "clean": "docker-compose down -v --remove-orphans"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/username/devops-ecommerce-capstone.git"
+  },
+  "keywords": [
+    "ecommerce",
+    "microservices",
+    "devops",
+    "kubernetes",
+    "terraform",
+    "aws"
+  ],
+  "author": "Gopal Walia",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
