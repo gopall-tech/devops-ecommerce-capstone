@@ -1,0 +1,62 @@
+# Shared ConfigMap for all services
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shared-config
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: ecommerce
+    app.kubernetes.io/component: config
+data:
+  # Redis Configuration
+  redis-url: "redis://ecommerce-prod-redis.xxxxxx.cache.amazonaws.com:6379"
+  redis-cluster-mode: "false"
+
+  # AWS Configuration
+  aws-region: "us-east-1"
+  s3-bucket: "ecommerce-prod-assets"
+  sns-order-topic-arn: "arn:aws:sns:us-east-1:ACCOUNT_ID:ecommerce-prod-orders"
+  sqs-notification-queue-url: "https://sqs.us-east-1.amazonaws.com/ACCOUNT_ID/ecommerce-prod-notifications"
+
+  # Service Discovery (internal URLs)
+  user-service-url: "http://user-service:3000"
+  product-service-url: "http://product-service:3001"
+  cart-service-url: "http://cart-service:3002"
+  payment-service-url: "http://payment-service:3003"
+  order-service-url: "http://order-service:3004"
+  api-gateway-url: "http://api-gateway:3005"
+
+  # CORS Configuration
+  cors-origins: "https://ecommerce.example.com,https://www.ecommerce.example.com,https://admin.ecommerce.example.com"
+
+  # Logging
+  log-level: "info"
+  log-format: "json"
+
+  # Tracing
+  xray-enabled: "true"
+  xray-daemon-address: "xray-daemon.monitoring:2000"
+
+  # Feature Flags
+  feature-new-checkout: "true"
+  feature-recommendations: "true"
+---
+# Environment-specific ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: environment-config
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: ecommerce
+    app.kubernetes.io/component: config
+    app.kubernetes.io/environment: prod
+data:
+  environment: "production"
+  debug-mode: "false"
+  maintenance-mode: "false"
+  api-rate-limit: "100"
+  api-rate-limit-window: "60000"
+  session-ttl: "86400"
+  cart-ttl: "604800"
+  cache-ttl: "3600"

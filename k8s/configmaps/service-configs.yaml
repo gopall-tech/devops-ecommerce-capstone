@@ -1,0 +1,106 @@
+# Service-specific ConfigMaps
+---
+# User Service Config
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-service-config
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: user-service
+    app.kubernetes.io/component: config
+data:
+  jwt-expiry: "1h"
+  jwt-refresh-expiry: "7d"
+  password-min-length: "8"
+  password-require-special: "true"
+  max-login-attempts: "5"
+  lockout-duration: "900"
+  email-verification-required: "true"
+  mfa-enabled: "false"
+---
+# Product Service Config
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: product-service-config
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: product-service
+    app.kubernetes.io/component: config
+data:
+  products-per-page: "20"
+  max-products-per-page: "100"
+  image-max-size: "5242880"
+  image-allowed-types: "image/jpeg,image/png,image/webp"
+  search-min-chars: "2"
+  cache-enabled: "true"
+  cache-ttl-products: "1800"
+  cache-ttl-categories: "3600"
+---
+# Cart Service Config
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cart-service-config
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: cart-service
+    app.kubernetes.io/component: config
+data:
+  max-items-per-cart: "50"
+  max-quantity-per-item: "10"
+  cart-ttl-guest: "86400"
+  cart-ttl-user: "604800"
+  merge-carts-on-login: "true"
+---
+# Payment Service Config
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payment-service-config
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/component: config
+data:
+  currency: "USD"
+  min-order-amount: "100"
+  max-order-amount: "10000000"
+  stripe-api-version: "2023-10-16"
+  payment-methods-enabled: "card,apple_pay,google_pay"
+  webhook-tolerance-seconds: "300"
+---
+# Order Service Config
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: order-service-config
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: order-service
+    app.kubernetes.io/component: config
+data:
+  order-number-prefix: "ORD"
+  orders-per-page: "20"
+  max-orders-export: "1000"
+  notification-enabled: "true"
+  inventory-reserve-timeout: "900"
+  auto-cancel-pending-hours: "24"
+---
+# API Gateway Config
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-gateway-config
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/component: config
+data:
+  request-timeout: "30000"
+  circuit-breaker-threshold: "5"
+  circuit-breaker-timeout: "30000"
+  retry-attempts: "3"
+  retry-delay: "1000"
+  request-size-limit: "10mb"
