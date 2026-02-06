@@ -1,0 +1,71 @@
+# Monitoring Namespace Configuration
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    app.kubernetes.io/name: monitoring
+    app.kubernetes.io/managed-by: kubectl
+  annotations:
+    description: "Monitoring stack (Prometheus, Grafana, etc.)"
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: monitoring-resource-quota
+  namespace: monitoring
+spec:
+  hard:
+    requests.cpu: "20"
+    requests.memory: 40Gi
+    limits.cpu: "40"
+    limits.memory: 80Gi
+    persistentvolumeclaims: "20"
+    pods: "50"
+---
+# Logging Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: logging
+  labels:
+    app.kubernetes.io/name: logging
+    app.kubernetes.io/managed-by: kubectl
+  annotations:
+    description: "Logging stack (ELK, Fluentd)"
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: logging-resource-quota
+  namespace: logging
+spec:
+  hard:
+    requests.cpu: "15"
+    requests.memory: 30Gi
+    limits.cpu: "30"
+    limits.memory: 60Gi
+    persistentvolumeclaims: "10"
+    pods: "30"
+---
+# ArgoCD Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    app.kubernetes.io/name: argocd
+    app.kubernetes.io/managed-by: kubectl
+  annotations:
+    description: "ArgoCD GitOps controller"
+---
+# Ingress Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/managed-by: kubectl
+  annotations:
+    description: "NGINX Ingress Controller"
