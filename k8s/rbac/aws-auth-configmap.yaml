@@ -1,0 +1,47 @@
+# AWS Auth ConfigMap for EKS
+# This maps IAM roles/users to Kubernetes RBAC
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aws-auth
+  namespace: kube-system
+data:
+  mapRoles: |
+    # EKS Node Group Role
+    - rolearn: arn:aws:iam::ACCOUNT_ID:role/ecommerce-prod-eks-node-role
+      username: system:node:{{EC2PrivateDNSName}}
+      groups:
+        - system:bootstrappers
+        - system:nodes
+
+    # DevOps Team Admin Role
+    - rolearn: arn:aws:iam::ACCOUNT_ID:role/DevOpsAdminRole
+      username: devops-admin
+      groups:
+        - devops-team
+        - system:masters
+
+    # Developer Role
+    - rolearn: arn:aws:iam::ACCOUNT_ID:role/DeveloperRole
+      username: developer
+      groups:
+        - developers
+
+    # CI/CD Pipeline Role
+    - rolearn: arn:aws:iam::ACCOUNT_ID:role/CICDPipelineRole
+      username: ci-pipeline
+      groups:
+        - ci-pipeline
+
+    # Read-only monitoring role
+    - rolearn: arn:aws:iam::ACCOUNT_ID:role/MonitoringRole
+      username: monitoring-reader
+      groups:
+        - monitoring-readers
+
+  mapUsers: |
+    # Direct IAM user mappings (use sparingly - prefer roles)
+    - userarn: arn:aws:iam::ACCOUNT_ID:user/admin
+      username: admin
+      groups:
+        - system:masters
