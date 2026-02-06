@@ -1,0 +1,162 @@
+# Vertical Pod Autoscalers for E-Commerce Platform
+# VPA automatically adjusts CPU and memory requests/limits
+---
+# User Service VPA
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: user-service-vpa
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: user-service
+    app.kubernetes.io/component: autoscaling
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: user-service
+  updatePolicy:
+    updateMode: "Off" # Recommendation only, manual updates
+  resourcePolicy:
+    containerPolicies:
+      - containerName: user-service
+        minAllowed:
+          cpu: 100m
+          memory: 128Mi
+        maxAllowed:
+          cpu: 2
+          memory: 4Gi
+        controlledResources:
+          - cpu
+          - memory
+        controlledValues: RequestsAndLimits
+---
+# Product Service VPA
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: product-service-vpa
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: product-service
+    app.kubernetes.io/component: autoscaling
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: product-service
+  updatePolicy:
+    updateMode: "Off"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: product-service
+        minAllowed:
+          cpu: 100m
+          memory: 128Mi
+        maxAllowed:
+          cpu: 2
+          memory: 4Gi
+---
+# Cart Service VPA
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: cart-service-vpa
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: cart-service
+    app.kubernetes.io/component: autoscaling
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cart-service
+  updatePolicy:
+    updateMode: "Off"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: cart-service
+        minAllowed:
+          cpu: 50m
+          memory: 64Mi
+        maxAllowed:
+          cpu: 1
+          memory: 2Gi
+---
+# Payment Service VPA
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: payment-service-vpa
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/component: autoscaling
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: payment-service
+  updatePolicy:
+    updateMode: "Off"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: payment-service
+        minAllowed:
+          cpu: 100m
+          memory: 256Mi
+        maxAllowed:
+          cpu: 2
+          memory: 4Gi
+---
+# Order Service VPA
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: order-service-vpa
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: order-service
+    app.kubernetes.io/component: autoscaling
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: order-service
+  updatePolicy:
+    updateMode: "Off"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: order-service
+        minAllowed:
+          cpu: 100m
+          memory: 128Mi
+        maxAllowed:
+          cpu: 2
+          memory: 4Gi
+---
+# API Gateway VPA
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: api-gateway-vpa
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/component: autoscaling
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-gateway
+  updatePolicy:
+    updateMode: "Off"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: api-gateway
+        minAllowed:
+          cpu: 200m
+          memory: 256Mi
+        maxAllowed:
+          cpu: 4
+          memory: 8Gi

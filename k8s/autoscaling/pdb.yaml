@@ -1,0 +1,92 @@
+# Pod Disruption Budgets for E-Commerce Platform
+# Ensures minimum availability during voluntary disruptions
+---
+# User Service PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: user-service-pdb
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: user-service
+    app.kubernetes.io/component: pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: user-service
+---
+# Product Service PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: product-service-pdb
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: product-service
+    app.kubernetes.io/component: pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: product-service
+---
+# Cart Service PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cart-service-pdb
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: cart-service
+    app.kubernetes.io/component: pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cart-service
+---
+# Payment Service PDB - Higher availability requirement
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: payment-service-pdb
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/component: pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payment-service
+---
+# Order Service PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: order-service-pdb
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: order-service
+    app.kubernetes.io/component: pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: order-service
+---
+# API Gateway PDB - Critical, higher availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-gateway-pdb
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/component: pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api-gateway
