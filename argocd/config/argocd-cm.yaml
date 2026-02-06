@@ -1,0 +1,98 @@
+# ArgoCD Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # Repository credentials template
+  repository.credentials: |
+    - url: https://github.com/example
+      passwordSecret:
+        name: github-creds
+        key: password
+      usernameSecret:
+        name: github-creds
+        key: username
+
+  # Resource tracking method
+  application.resourceTrackingMethod: annotation
+
+  # Health check customizations
+  resource.customizations.health.argoproj.io_Application: |
+    hs = {}
+    hs.status = "Progressing"
+    hs.message = ""
+    if obj.status ~= nil then
+      if obj.status.health ~= nil then
+        hs.status = obj.status.health.status
+        if obj.status.health.message ~= nil then
+          hs.message = obj.status.health.message
+        end
+      end
+    end
+    return hs
+
+  # Ignore differences for HPA managed replicas
+  resource.customizations.ignoreDifferences.apps_Deployment: |
+    jqPathExpressions:
+      - '.spec.replicas'
+
+  # Status badge enabled
+  statusbadge.enabled: "true"
+
+  # Dex configuration for SSO
+  dex.config: |
+    connectors:
+      - type: github
+        id: github
+        name: GitHub
+        config:
+          clientID: $github-oauth:client-id
+          clientSecret: $github-oauth:client-secret
+          orgs:
+            - name: example
+              teams:
+                - devops-team
+                - developers
+
+  # Admin account enabled (should be disabled in production)
+  admin.enabled: "true"
+
+  # Timeout settings
+  timeout.reconciliation: 180s
+  timeout.hard.reconciliation: 0s
+
+  # Application namespaces
+  application.namespaces: ecommerce-dev, ecommerce-staging, ecommerce-prod
+---
+# ArgoCD RBAC Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-rbac-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  policy.default: role:readonly
+  policy.csv: |
+    # DevOps team has admin access
+    g, devops-team, role:admin
+
+    # Developers can view all and sync dev/staging
+    p, role:developer, applications, get, */*, allow
+    p, role:developer, applications, sync, */ecommerce-dev, allow
+    p, role:developer, applications, sync, */ecommerce-staging, allow
+    p, role:developer, logs, get, */*, allow
+    g, developers, role:developer
+
+    # Viewers can only view
+    p, role:viewer, applications, get, */*, allow
+    g, viewers, role:viewer
+
+  scopes: '[groups]'

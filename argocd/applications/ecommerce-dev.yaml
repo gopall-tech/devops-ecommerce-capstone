@@ -1,0 +1,64 @@
+# Development Environment Application
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ecommerce-dev
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: ecommerce
+    app.kubernetes.io/environment: dev
+    app.kubernetes.io/component: gitops
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: ecommerce-dev-alerts
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: ecommerce-dev-alerts
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: ecommerce
+  source:
+    repoURL: https://github.com/example/ecommerce.git
+    targetRevision: develop
+    path: helm/charts/ecommerce
+    helm:
+      releaseName: ecommerce-dev
+      valueFiles:
+        - values.yaml
+        - ../../k8s/kustomize/overlays/dev/values.yaml
+      parameters:
+        - name: global.environment
+          value: dev
+        - name: userService.replicaCount
+          value: "1"
+        - name: productService.replicaCount
+          value: "1"
+        - name: cartService.replicaCount
+          value: "1"
+        - name: paymentService.replicaCount
+          value: "1"
+        - name: orderService.replicaCount
+          value: "1"
+        - name: apiGateway.replicaCount
+          value: "1"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas

@@ -1,0 +1,64 @@
+# Production Environment Application
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ecommerce-prod
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: ecommerce
+    app.kubernetes.io/environment: prod
+    app.kubernetes.io/component: gitops
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: ecommerce-prod-alerts
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: ecommerce-prod-alerts
+    notifications.argoproj.io/subscribe.on-health-degraded.pagerduty: ecommerce-prod-critical
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: ecommerce
+  source:
+    repoURL: https://github.com/example/ecommerce.git
+    targetRevision: main
+    path: helm/charts/ecommerce
+    helm:
+      releaseName: ecommerce-prod
+      valueFiles:
+        - values.yaml
+        - ../../k8s/kustomize/overlays/prod/values.yaml
+      parameters:
+        - name: global.environment
+          value: prod
+        - name: userService.replicaCount
+          value: "3"
+        - name: productService.replicaCount
+          value: "3"
+        - name: cartService.replicaCount
+          value: "3"
+        - name: paymentService.replicaCount
+          value: "3"
+        - name: orderService.replicaCount
+          value: "3"
+        - name: apiGateway.replicaCount
+          value: "3"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-prod
+  syncPolicy:
+    # Manual sync for production - requires approval
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas

@@ -1,0 +1,100 @@
+# ArgoCD Project Definition
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: ecommerce
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: ecommerce
+    app.kubernetes.io/component: gitops
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: E-Commerce Platform Project
+
+  # Source repositories
+  sourceRepos:
+    - 'https://github.com/example/ecommerce.git'
+    - 'https://charts.bitnami.com/bitnami'
+
+  # Destination clusters and namespaces
+  destinations:
+    - namespace: ecommerce-dev
+      server: https://kubernetes.default.svc
+    - namespace: ecommerce-staging
+      server: https://kubernetes.default.svc
+    - namespace: ecommerce-prod
+      server: https://kubernetes.default.svc
+    - namespace: argocd
+      server: https://kubernetes.default.svc
+    - namespace: monitoring
+      server: https://kubernetes.default.svc
+    - namespace: logging
+      server: https://kubernetes.default.svc
+
+  # Cluster resource whitelist
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+    - group: 'rbac.authorization.k8s.io'
+      kind: ClusterRole
+    - group: 'rbac.authorization.k8s.io'
+      kind: ClusterRoleBinding
+    - group: 'networking.k8s.io'
+      kind: IngressClass
+
+  # Namespace resource blacklist
+  namespaceResourceBlacklist:
+    - group: ''
+      kind: ResourceQuota
+    - group: ''
+      kind: LimitRange
+
+  # Roles for project access
+  roles:
+    - name: admin
+      description: Admin access to ecommerce project
+      policies:
+        - p, proj:ecommerce:admin, applications, *, ecommerce/*, allow
+        - p, proj:ecommerce:admin, repositories, *, ecommerce/*, allow
+      groups:
+        - devops-team
+
+    - name: developer
+      description: Developer access - read and sync dev/staging
+      policies:
+        - p, proj:ecommerce:developer, applications, get, ecommerce/*, allow
+        - p, proj:ecommerce:developer, applications, sync, ecommerce/ecommerce-dev, allow
+        - p, proj:ecommerce:developer, applications, sync, ecommerce/ecommerce-staging, allow
+      groups:
+        - developers
+
+    - name: viewer
+      description: Read-only access
+      policies:
+        - p, proj:ecommerce:viewer, applications, get, ecommerce/*, allow
+      groups:
+        - viewers
+
+  # Sync windows - restrict prod deployments to business hours
+  syncWindows:
+    - kind: allow
+      schedule: '0 9-17 * * 1-5'
+      duration: 8h
+      applications:
+        - ecommerce-prod
+      manualSync: true
+    - kind: deny
+      schedule: '0 0 * * 0'
+      duration: 24h
+      applications:
+        - ecommerce-prod
+      manualSync: false
+
+  # Orphaned resources monitoring
+  orphanedResources:
+    warn: true
+    ignore:
+      - group: ''
+        kind: ConfigMap
+        name: kube-root-ca.crt

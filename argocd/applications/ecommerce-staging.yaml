@@ -1,0 +1,64 @@
+# Staging Environment Application
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ecommerce-staging
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: ecommerce
+    app.kubernetes.io/environment: staging
+    app.kubernetes.io/component: gitops
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: ecommerce-staging-alerts
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: ecommerce-staging-alerts
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: ecommerce
+  source:
+    repoURL: https://github.com/example/ecommerce.git
+    targetRevision: release
+    path: helm/charts/ecommerce
+    helm:
+      releaseName: ecommerce-staging
+      valueFiles:
+        - values.yaml
+        - ../../k8s/kustomize/overlays/staging/values.yaml
+      parameters:
+        - name: global.environment
+          value: staging
+        - name: userService.replicaCount
+          value: "2"
+        - name: productService.replicaCount
+          value: "2"
+        - name: cartService.replicaCount
+          value: "2"
+        - name: paymentService.replicaCount
+          value: "2"
+        - name: orderService.replicaCount
+          value: "2"
+        - name: apiGateway.replicaCount
+          value: "2"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
