@@ -1,0 +1,20 @@
+apiVersion: v2
+name: ecommerce
+description: A Helm chart for E-Commerce Platform microservices
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - ecommerce
+  - microservices
+  - nodejs
+home: https://github.com/example/ecommerce
+sources:
+  - https://github.com/example/ecommerce
+maintainers:
+  - name: DevOps Team
+    email: devops@ecommerce.example.com
+dependencies:
+  - name: common
+    version: 1.x.x
+    repository: https://charts.bitnami.com/bitnami

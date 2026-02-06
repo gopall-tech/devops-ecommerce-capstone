@@ -1,0 +1,288 @@
+# Default values for e-commerce platform
+# This is a YAML-formatted file.
+
+global:
+  # Global image settings
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+  # Global environment
+  environment: production
+
+  # AWS settings
+  aws:
+    region: us-east-1
+    accountId: "ACCOUNT_ID"
+
+  # Service mesh
+  serviceMesh:
+    enabled: false
+    provider: istio
+
+# Common settings for all services
+common:
+  labels:
+    app.kubernetes.io/part-of: ecommerce
+    app.kubernetes.io/managed-by: helm
+
+  annotations:
+    prometheus.io/scrape: "true"
+
+  # Pod security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  # Container security context
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+# User Service
+userService:
+  enabled: true
+  name: user-service
+  replicaCount: 3
+
+  image:
+    repository: ecommerce/user-service
+    tag: latest
+    pullPolicy: Always
+
+  service:
+    type: ClusterIP
+    port: 3000
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  env:
+    NODE_ENV: production
+    PORT: "3000"
+
+  secrets:
+    - name: database-url
+      key: database-url
+    - name: jwt-secret
+      key: jwt-secret
+    - name: jwt-refresh-secret
+      key: jwt-refresh-secret
+
+# Product Service
+productService:
+  enabled: true
+  name: product-service
+  replicaCount: 3
+
+  image:
+    repository: ecommerce/product-service
+    tag: latest
+    pullPolicy: Always
+
+  service:
+    type: ClusterIP
+    port: 3001
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+  env:
+    NODE_ENV: production
+    PORT: "3001"
+    CACHE_TTL: "3600"
+
+# Cart Service
+cartService:
+  enabled: true
+  name: cart-service
+  replicaCount: 3
+
+  image:
+    repository: ecommerce/cart-service
+    tag: latest
+    pullPolicy: Always
+
+  service:
+    type: ClusterIP
+    port: 3002
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+
+  env:
+    NODE_ENV: production
+    PORT: "3002"
+    CART_TTL: "604800"
+
+# Payment Service
+paymentService:
+  enabled: true
+  name: payment-service
+  replicaCount: 3
+
+  image:
+    repository: ecommerce/payment-service
+    tag: latest
+    pullPolicy: Always
+
+  service:
+    type: ClusterIP
+    port: 3003
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 60
+
+  env:
+    NODE_ENV: production
+    PORT: "3003"
+
+# Order Service
+orderService:
+  enabled: true
+  name: order-service
+  replicaCount: 3
+
+  image:
+    repository: ecommerce/order-service
+    tag: latest
+    pullPolicy: Always
+
+  service:
+    type: ClusterIP
+    port: 3004
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+  env:
+    NODE_ENV: production
+    PORT: "3004"
+
+# API Gateway
+apiGateway:
+  enabled: true
+  name: api-gateway
+  replicaCount: 3
+
+  image:
+    repository: ecommerce/api-gateway
+    tag: latest
+    pullPolicy: Always
+
+  service:
+    type: ClusterIP
+    port: 3005
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 1Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 15
+    targetCPUUtilizationPercentage: 60
+
+  env:
+    NODE_ENV: production
+    PORT: "3005"
+    RATE_LIMIT_WINDOW_MS: "60000"
+    RATE_LIMIT_MAX_REQUESTS: "100"
+
+# Ingress Configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: api.ecommerce.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: api-gateway
+  tls:
+    - secretName: ecommerce-tls
+      hosts:
+        - api.ecommerce.example.com
+
+# Pod Disruption Budgets
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Network Policies
+networkPolicy:
+  enabled: true
+
+# Service Account
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: ""

@@ -1,0 +1,97 @@
+{{- $services := list "userService" "productService" "cartService" "paymentService" "orderService" "apiGateway" }}
+{{- range $serviceName := $services }}
+{{- $service := index $.Values $serviceName }}
+{{- if $service.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $service.name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ $service.name }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/component: microservice
+    app.kubernetes.io/part-of: ecommerce
+    app.kubernetes.io/version: {{ $.Chart.AppVersion | quote }}
+spec:
+  replicas: {{ $service.replicaCount }}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $service.name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $service.name }}
+        app.kubernetes.io/instance: {{ $.Release.Name }}
+        app.kubernetes.io/component: microservice
+        app.kubernetes.io/part-of: ecommerce
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ $service.service.port | quote }}
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: {{ $service.name }}
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        {{- include "ecommerce.podSecurityContext" $ | nindent 8 }}
+      containers:
+        - name: {{ $service.name }}
+          image: {{ $.Values.global.aws.accountId }}.dkr.ecr.{{ $.Values.global.aws.region }}.amazonaws.com/{{ $service.image.repository }}:{{ $service.image.tag }}
+          imagePullPolicy: {{ $service.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ $service.service.port }}
+              protocol: TCP
+          env:
+            {{- range $key, $value := $service.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- if $service.secrets }}
+            {{- range $secret := $service.secrets }}
+            - name: {{ $secret.name | upper | replace "-" "_" }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $service.name }}-secrets
+                  key: {{ $secret.key }}
+            {{- end }}
+            {{- end }}
+          resources:
+            {{- toYaml $service.resources | nindent 12 }}
+          livenessProbe:
+            {{- include "ecommerce.livenessProbe" $ | nindent 12 }}
+          readinessProbe:
+            {{- include "ecommerce.readinessProbe" $ | nindent 12 }}
+          securityContext:
+            {{- include "ecommerce.containerSecurityContext" $ | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: {{ $service.name }}
+                topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ $service.name }}
+{{- end }}
+{{- end }}

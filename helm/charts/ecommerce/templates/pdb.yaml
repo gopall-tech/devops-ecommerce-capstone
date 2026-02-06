@@ -1,0 +1,24 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+{{- $services := list "userService" "productService" "cartService" "paymentService" "orderService" "apiGateway" }}
+{{- range $serviceName := $services }}
+{{- $service := index $.Values $serviceName }}
+{{- if $service.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $service.name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ $service.name }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/component: microservice
+    app.kubernetes.io/part-of: ecommerce
+spec:
+  minAvailable: {{ $.Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $service.name }}
+{{- end }}
+{{- end }}
+{{- end }}
