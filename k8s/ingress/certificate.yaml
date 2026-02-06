@@ -1,0 +1,53 @@
+# TLS Certificate Configuration using cert-manager
+---
+# ClusterIssuer for Let's Encrypt Production
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    email: devops@ecommerce.example.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+---
+# ClusterIssuer for Let's Encrypt Staging (for testing)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    email: devops@ecommerce.example.com
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-staging-account-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+---
+# Certificate for e-commerce API
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ecommerce-tls
+  namespace: ecommerce-prod
+spec:
+  secretName: ecommerce-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  commonName: api.ecommerce.example.com
+  dnsNames:
+    - api.ecommerce.example.com
+    - www.api.ecommerce.example.com
+  privateKey:
+    rotationPolicy: Always
+    algorithm: ECDSA
+    size: 256

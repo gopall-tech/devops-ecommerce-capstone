@@ -1,0 +1,74 @@
+# NGINX Ingress Controller Configuration
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/component: controller
+  annotations:
+    ingressclass.kubernetes.io/is-default-class: "true"
+spec:
+  controller: k8s.io/ingress-nginx
+---
+# ConfigMap for NGINX Ingress Controller
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-configuration
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/component: controller
+data:
+  # Enable gzip compression
+  use-gzip: "true"
+  gzip-level: "5"
+  gzip-types: "application/json application/javascript text/css text/plain"
+
+  # Connection settings
+  keep-alive: "75"
+  keep-alive-requests: "100"
+  upstream-keepalive-connections: "100"
+  upstream-keepalive-timeout: "60"
+
+  # Proxy settings
+  proxy-connect-timeout: "10"
+  proxy-read-timeout: "60"
+  proxy-send-timeout: "60"
+  proxy-buffer-size: "128k"
+  proxy-buffers-number: "4"
+
+  # Security headers
+  hide-headers: "X-Powered-By,Server"
+  add-headers: "ingress-nginx/custom-headers"
+
+  # Logging
+  log-format-upstream: '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" $request_length $request_time [$proxy_upstream_name] [$proxy_alternative_upstream_name] $upstream_addr $upstream_response_length $upstream_response_time $upstream_status $req_id'
+
+  # Enable real IP from load balancer
+  use-forwarded-headers: "true"
+  compute-full-forwarded-for: "true"
+  use-proxy-protocol: "false"
+
+  # Rate limiting
+  limit-rate-after: "0"
+  limit-rate: "0"
+
+  # SSL
+  ssl-protocols: "TLSv1.2 TLSv1.3"
+  ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384"
+  ssl-prefer-server-ciphers: "true"
+---
+# Custom security headers
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custom-headers
+  namespace: ingress-nginx
+data:
+  X-Content-Type-Options: "nosniff"
+  X-Frame-Options: "DENY"
+  X-XSS-Protection: "1; mode=block"
+  Referrer-Policy: "strict-origin-when-cross-origin"
+  Content-Security-Policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;"
