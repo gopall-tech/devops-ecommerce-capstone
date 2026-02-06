@@ -1,0 +1,65 @@
+# Istio Service Entries for external services
+---
+# Stripe API
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: stripe-api
+  namespace: ecommerce-prod
+spec:
+  hosts:
+    - api.stripe.com
+  ports:
+    - number: 443
+      name: https
+      protocol: TLS
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+# AWS Services (S3, SQS, SNS, etc.)
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: aws-services
+  namespace: ecommerce-prod
+spec:
+  hosts:
+    - "*.amazonaws.com"
+  ports:
+    - number: 443
+      name: https
+      protocol: TLS
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+# RDS Endpoint
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: rds-postgres
+  namespace: ecommerce-prod
+spec:
+  hosts:
+    - "*.rds.amazonaws.com"
+  ports:
+    - number: 5432
+      name: postgres
+      protocol: TCP
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+# ElastiCache Endpoint
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: elasticache-redis
+  namespace: ecommerce-prod
+spec:
+  hosts:
+    - "*.cache.amazonaws.com"
+  ports:
+    - number: 6379
+      name: redis
+      protocol: TCP
+  location: MESH_EXTERNAL
+  resolution: DNS

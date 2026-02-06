@@ -1,0 +1,147 @@
+# Istio Virtual Services for routing
+---
+# API Gateway Virtual Service
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: api-gateway-vs
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/component: virtual-service
+spec:
+  hosts:
+    - api.ecommerce.example.com
+  gateways:
+    - ecommerce-gateway
+  http:
+    - match:
+        - uri:
+            prefix: /
+      route:
+        - destination:
+            host: api-gateway
+            port:
+              number: 3005
+      timeout: 30s
+      retries:
+        attempts: 3
+        perTryTimeout: 10s
+        retryOn: connect-failure,refused-stream,unavailable,cancelled,retriable-4xx,reset
+---
+# User Service Virtual Service (internal)
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: user-service-vs
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: user-service
+    app.kubernetes.io/component: virtual-service
+spec:
+  hosts:
+    - user-service
+  http:
+    - route:
+        - destination:
+            host: user-service
+            port:
+              number: 3000
+      timeout: 15s
+      retries:
+        attempts: 3
+        perTryTimeout: 5s
+        retryOn: connect-failure,refused-stream,unavailable,cancelled
+---
+# Product Service Virtual Service
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: product-service-vs
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: product-service
+    app.kubernetes.io/component: virtual-service
+spec:
+  hosts:
+    - product-service
+  http:
+    - route:
+        - destination:
+            host: product-service
+            port:
+              number: 3001
+      timeout: 15s
+      retries:
+        attempts: 3
+        perTryTimeout: 5s
+---
+# Cart Service Virtual Service
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: cart-service-vs
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: cart-service
+    app.kubernetes.io/component: virtual-service
+spec:
+  hosts:
+    - cart-service
+  http:
+    - route:
+        - destination:
+            host: cart-service
+            port:
+              number: 3002
+      timeout: 10s
+      retries:
+        attempts: 3
+        perTryTimeout: 3s
+---
+# Payment Service Virtual Service (more conservative retries)
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: payment-service-vs
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/component: virtual-service
+spec:
+  hosts:
+    - payment-service
+  http:
+    - route:
+        - destination:
+            host: payment-service
+            port:
+              number: 3003
+      timeout: 30s
+      retries:
+        attempts: 2
+        perTryTimeout: 10s
+        retryOn: connect-failure,refused-stream
+---
+# Order Service Virtual Service
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: order-service-vs
+  namespace: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: order-service
+    app.kubernetes.io/component: virtual-service
+spec:
+  hosts:
+    - order-service
+  http:
+    - route:
+        - destination:
+            host: order-service
+            port:
+              number: 3004
+      timeout: 20s
+      retries:
+        attempts: 3
+        perTryTimeout: 6s
