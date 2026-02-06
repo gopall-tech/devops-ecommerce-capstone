@@ -1,0 +1,83 @@
+# Development Environment Overlay
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: ecommerce-dev
+
+namespace: ecommerce-dev
+
+resources:
+  - ../../base
+  - namespace.yaml
+
+commonLabels:
+  app.kubernetes.io/environment: dev
+
+commonAnnotations:
+  environment: development
+
+# Image transformations for dev
+images:
+  - name: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/ecommerce/user-service
+    newTag: dev-latest
+  - name: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/ecommerce/product-service
+    newTag: dev-latest
+  - name: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/ecommerce/cart-service
+    newTag: dev-latest
+  - name: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/ecommerce/payment-service
+    newTag: dev-latest
+  - name: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/ecommerce/order-service
+    newTag: dev-latest
+  - name: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/ecommerce/api-gateway
+    newTag: dev-latest
+
+# Patches for dev environment
+patches:
+  # Reduce replicas for dev
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Deployment
+      name: ".*"
+
+  # Reduce resources for dev
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "100m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "128Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "500m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "512Mi"
+    target:
+      kind: Deployment
+      name: ".*"
+
+configMapGenerator:
+  - name: dev-environment-config
+    literals:
+      - LOG_LEVEL=debug
+      - DEBUG_MODE=true
+      - MAINTENANCE_MODE=false
+
+# Replace ConfigMap references
+replacements:
+  - source:
+      kind: ConfigMap
+      name: dev-environment-config
+      fieldPath: metadata.name
+    targets:
+      - select:
+          kind: Deployment
+        fieldPaths:
+          - spec.template.spec.containers.[name=*].envFrom.[configMapRef].name
+        options:
+          create: true

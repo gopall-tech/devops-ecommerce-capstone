@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ecommerce-prod
+  labels:
+    app.kubernetes.io/name: ecommerce
+    app.kubernetes.io/environment: prod
+    istio-injection: enabled

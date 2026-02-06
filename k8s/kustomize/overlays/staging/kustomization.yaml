@@ -1,0 +1,51 @@
+# Staging Environment Overlay
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: ecommerce-staging
+
+namespace: ecommerce-staging
+
+resources:
+  - ../../base
+  - namespace.yaml
+
+commonLabels:
+  app.kubernetes.io/environment: staging
+
+commonAnnotations:
+  environment: staging
+
+# Image transformations for staging
+images:
+  - name: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/ecommerce/user-service
+    newTag: staging-latest
+  - name: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/ecommerce/product-service
+    newTag: staging-latest
+  - name: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/ecommerce/cart-service
+    newTag: staging-latest
+  - name: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/ecommerce/payment-service
+    newTag: staging-latest
+  - name: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/ecommerce/order-service
+    newTag: staging-latest
+  - name: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/ecommerce/api-gateway
+    newTag: staging-latest
+
+# Patches for staging environment
+patches:
+  # 2 replicas for staging
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+    target:
+      kind: Deployment
+      name: ".*"
+
+configMapGenerator:
+  - name: staging-environment-config
+    literals:
+      - LOG_LEVEL=info
+      - DEBUG_MODE=false
+      - MAINTENANCE_MODE=false

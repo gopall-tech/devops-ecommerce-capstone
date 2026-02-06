@@ -1,0 +1,105 @@
+# Helm values override for dev environment
+global:
+  environment: dev
+
+common:
+  annotations:
+    environment: development
+
+userService:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+  env:
+    LOG_LEVEL: debug
+
+productService:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+  env:
+    LOG_LEVEL: debug
+    CACHE_TTL: "300"
+
+cartService:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  autoscaling:
+    enabled: false
+
+paymentService:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+
+orderService:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+
+apiGateway:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+  env:
+    RATE_LIMIT_MAX_REQUESTS: "1000"
+
+ingress:
+  enabled: true
+  hosts:
+    - host: dev-api.ecommerce.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: api-gateway
+  tls:
+    - secretName: ecommerce-dev-tls
+      hosts:
+        - dev-api.ecommerce.example.com
+
+podDisruptionBudget:
+  enabled: false
+
+networkPolicy:
+  enabled: false
