@@ -1,0 +1,234 @@
+# Automated Rollback Workflow
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      service:
+        description: 'Service to rollback (all for all services)'
+        required: true
+        type: choice
+        options:
+          - all
+          - user-service
+          - product-service
+          - cart-service
+          - payment-service
+          - order-service
+          - api-gateway
+      revision:
+        description: 'Rollback to specific revision (leave empty for previous)'
+        required: false
+        type: string
+      reason:
+        description: 'Reason for rollback'
+        required: true
+        type: string
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER_NAME: ecommerce-prod-eks
+
+jobs:
+  # Validate rollback request
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.set-services.outputs.services }}
+    steps:
+      - name: Validate inputs
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "⚠️ Production rollback requested!"
+            echo "Reason: ${{ github.event.inputs.reason }}"
+          fi
+
+      - name: Set services
+        id: set-services
+        run: |
+          if [ "${{ github.event.inputs.service }}" == "all" ]; then
+            echo 'services=["user-service","product-service","cart-service","payment-service","order-service","api-gateway"]' >> $GITHUB_OUTPUT
+          else
+            echo 'services=["${{ github.event.inputs.service }}"]' >> $GITHUB_OUTPUT
+          fi
+
+  # Perform rollback
+  rollback:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.validate.outputs.services) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+      - name: Get current revision
+        id: current
+        run: |
+          NAMESPACE="ecommerce-${{ github.event.inputs.environment }}"
+          CURRENT=$(kubectl rollout history deployment/${{ matrix.service }} -n ${NAMESPACE} | tail -n 2 | head -n 1 | awk '{print $1}')
+          echo "current_revision=${CURRENT}" >> $GITHUB_OUTPUT
+
+      - name: Perform rollback
+        run: |
+          NAMESPACE="ecommerce-${{ github.event.inputs.environment }}"
+          SERVICE="${{ matrix.service }}"
+
+          if [ -n "${{ github.event.inputs.revision }}" ]; then
+            echo "Rolling back to revision ${{ github.event.inputs.revision }}"
+            kubectl rollout undo deployment/${SERVICE} -n ${NAMESPACE} --to-revision=${{ github.event.inputs.revision }}
+          else
+            echo "Rolling back to previous version"
+            kubectl rollout undo deployment/${SERVICE} -n ${NAMESPACE}
+          fi
+
+          # Wait for rollback to complete
+          kubectl rollout status deployment/${SERVICE} -n ${NAMESPACE} --timeout=300s
+
+      - name: Verify rollback
+        run: |
+          NAMESPACE="ecommerce-${{ github.event.inputs.environment }}"
+          SERVICE="${{ matrix.service }}"
+
+          # Check deployment status
+          kubectl get deployment/${SERVICE} -n ${NAMESPACE}
+
+          # Check pods are running
+          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=${SERVICE} -n ${NAMESPACE} --timeout=120s
+
+          # Run health check
+          POD=$(kubectl get pods -n ${NAMESPACE} -l app.kubernetes.io/name=${SERVICE} -o jsonpath='{.items[0].metadata.name}')
+          kubectl exec -n ${NAMESPACE} ${POD} -- wget -q -O- http://localhost:3000/health
+
+      - name: Get new revision info
+        id: new
+        run: |
+          NAMESPACE="ecommerce-${{ github.event.inputs.environment }}"
+          IMAGE=$(kubectl get deployment/${{ matrix.service }} -n ${NAMESPACE} -o jsonpath='{.spec.template.spec.containers[0].image}')
+          REVISION=$(kubectl rollout history deployment/${{ matrix.service }} -n ${NAMESPACE} | tail -n 2 | head -n 1 | awk '{print $1}')
+          echo "new_revision=${REVISION}" >> $GITHUB_OUTPUT
+          echo "image=${IMAGE}" >> $GITHUB_OUTPUT
+
+      - name: Create rollback record
+        run: |
+          echo "## Rollback Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | ${{ matrix.service }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | ${{ github.event.inputs.environment }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| From Revision | ${{ steps.current.outputs.current_revision }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| To Revision | ${{ steps.new.outputs.new_revision }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| New Image | ${{ steps.new.outputs.image }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Reason | ${{ github.event.inputs.reason }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered By | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Time | $(date -u) |" >> $GITHUB_STEP_SUMMARY
+
+  # Send notifications
+  notify:
+    needs: [validate, rollback]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
+          payload: |
+            {
+              "text": "🔄 Rollback Notification",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🔄 Rollback Performed"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Environment:*\n${{ github.event.inputs.environment }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Service(s):*\n${{ github.event.inputs.service }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Status:*\n${{ needs.rollback.result }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Triggered By:*\n${{ github.actor }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Reason:*\n${{ github.event.inputs.reason }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+      - name: Send PagerDuty alert (for prod)
+        if: github.event.inputs.environment == 'prod'
+        run: |
+          curl -X POST https://events.pagerduty.com/v2/enqueue \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "routing_key": "${{ secrets.PAGERDUTY_ROUTING_KEY }}",
+              "event_action": "trigger",
+              "payload": {
+                "summary": "Production rollback performed: ${{ github.event.inputs.service }}",
+                "severity": "warning",
+                "source": "github-actions",
+                "custom_details": {
+                  "environment": "${{ github.event.inputs.environment }}",
+                  "service": "${{ github.event.inputs.service }}",
+                  "reason": "${{ github.event.inputs.reason }}",
+                  "triggered_by": "${{ github.actor }}"
+                }
+              }
+            }'
+
+  # Create incident ticket
+  create-incident:
+    needs: [validate, rollback]
+    if: github.event.inputs.environment == 'prod'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create incident record
+        run: |
+          # This would integrate with your incident management system
+          echo "Creating incident record for production rollback"
+          echo "Service: ${{ github.event.inputs.service }}"
+          echo "Reason: ${{ github.event.inputs.reason }}"
+          echo "Time: $(date -u)"
