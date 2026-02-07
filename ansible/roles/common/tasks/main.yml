@@ -1,0 +1,79 @@
+# Common Role Tasks
+---
+- name: Set timezone
+  timezone:
+    name: "{{ timezone | default('UTC') }}"
+
+- name: Install common packages
+  apt:
+    name:
+      - curl
+      - wget
+      - vim
+      - htop
+      - iotop
+      - net-tools
+      - dnsutils
+      - jq
+      - unzip
+      - git
+      - ca-certificates
+      - gnupg
+      - lsb-release
+      - python3-pip
+      - ntp
+    state: present
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+
+- name: Configure NTP
+  template:
+    src: ntp.conf.j2
+    dest: /etc/ntp.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart NTP
+
+- name: Enable NTP service
+  systemd:
+    name: ntp
+    state: started
+    enabled: yes
+
+- name: Create application user
+  user:
+    name: ecommerce
+    shell: /bin/bash
+    home: /opt/ecommerce
+    create_home: yes
+    system: yes
+
+- name: Set up log rotation
+  template:
+    src: logrotate.conf.j2
+    dest: /etc/logrotate.d/ecommerce
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Configure system limits
+  pam_limits:
+    domain: "{{ item.domain }}"
+    limit_type: "{{ item.type }}"
+    limit_item: "{{ item.item }}"
+    value: "{{ item.value }}"
+  loop:
+    - { domain: '*', type: 'soft', item: 'nofile', value: '65535' }
+    - { domain: '*', type: 'hard', item: 'nofile', value: '65535' }
+    - { domain: '*', type: 'soft', item: 'nproc', value: '65535' }
+    - { domain: '*', type: 'hard', item: 'nproc', value: '65535' }
+
+- name: Install AWS CLI
+  pip:
+    name: awscli
+    state: present
+
+- name: Install Docker
+  include_tasks: docker.yml
+  when: install_docker | default(true)

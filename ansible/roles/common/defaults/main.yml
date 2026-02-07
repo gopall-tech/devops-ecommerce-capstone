@@ -1,0 +1,17 @@
+# Common Role Defaults
+---
+timezone: UTC
+install_docker: true
+docker_log_max_size: "100m"
+docker_log_max_file: "3"
+
+# System limits
+nofile_limit: 65535
+nproc_limit: 65535
+
+# NTP servers
+ntp_servers:
+  - 0.amazon.pool.ntp.org
+  - 1.amazon.pool.ntp.org
+  - 2.amazon.pool.ntp.org
+  - 3.amazon.pool.ntp.org

@@ -1,0 +1,35 @@
+# Common Role Handlers
+---
+- name: Restart NTP
+  systemd:
+    name: ntp
+    state: restarted
+
+- name: Restart Docker
+  systemd:
+    name: docker
+    state: restarted
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Restart SSH
+  systemd:
+    name: sshd
+    state: restarted
+
+- name: Restart fail2ban
+  systemd:
+    name: fail2ban
+    state: restarted
+
+- name: Restart auditd
+  service:
+    name: auditd
+    state: restarted
+
+- name: Restart rsyslog
+  systemd:
+    name: rsyslog
+    state: restarted
