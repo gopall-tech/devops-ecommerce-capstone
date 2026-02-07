@@ -1,0 +1,433 @@
+# Continuous Integration Workflow
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+      - 'release/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  NODE_VERSION: '20'
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Detect which services changed
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      user-service: ${{ steps.changes.outputs.user-service }}
+      product-service: ${{ steps.changes.outputs.product-service }}
+      cart-service: ${{ steps.changes.outputs.cart-service }}
+      payment-service: ${{ steps.changes.outputs.payment-service }}
+      order-service: ${{ steps.changes.outputs.order-service }}
+      api-gateway: ${{ steps.changes.outputs.api-gateway }}
+      terraform: ${{ steps.changes.outputs.terraform }}
+      kubernetes: ${{ steps.changes.outputs.kubernetes }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            user-service:
+              - 'services/user-service/**'
+            product-service:
+              - 'services/product-service/**'
+            cart-service:
+              - 'services/cart-service/**'
+            payment-service:
+              - 'services/payment-service/**'
+            order-service:
+              - 'services/order-service/**'
+            api-gateway:
+              - 'services/api-gateway/**'
+            terraform:
+              - 'terraform/**'
+            kubernetes:
+              - 'k8s/**'
+              - 'helm/**'
+
+  # Lint all services
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Check formatting with Prettier
+        run: npm run format:check
+
+  # Test each service
+  test-user-service:
+    needs: [detect-changes, lint]
+    if: needs.detect-changes.outputs.user-service == 'true' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: users_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        working-directory: services/user-service
+        run: npm ci
+
+      - name: Run database migrations
+        working-directory: services/user-service
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/users_test
+        run: npx prisma migrate deploy
+
+      - name: Run tests
+        working-directory: services/user-service
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/users_test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-secret
+          JWT_REFRESH_SECRET: test-refresh-secret
+        run: npm test -- --coverage
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: services/user-service/coverage/lcov.info
+          flags: user-service
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  test-product-service:
+    needs: [detect-changes, lint]
+    if: needs.detect-changes.outputs.product-service == 'true' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: products_test
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        working-directory: services/product-service
+        run: npm ci
+
+      - name: Run tests
+        working-directory: services/product-service
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/products_test
+          REDIS_URL: redis://localhost:6379
+        run: npm test -- --coverage
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: services/product-service/coverage/lcov.info
+          flags: product-service
+
+  test-cart-service:
+    needs: [detect-changes, lint]
+    if: needs.detect-changes.outputs.cart-service == 'true' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        working-directory: services/cart-service
+        run: npm ci
+
+      - name: Run tests
+        working-directory: services/cart-service
+        env:
+          REDIS_URL: redis://localhost:6379
+        run: npm test -- --coverage
+
+  test-payment-service:
+    needs: [detect-changes, lint]
+    if: needs.detect-changes.outputs.payment-service == 'true' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: payments_test
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        working-directory: services/payment-service
+        run: npm ci
+
+      - name: Run tests
+        working-directory: services/payment-service
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/payments_test
+          STRIPE_SECRET_KEY: sk_test_mock
+        run: npm test -- --coverage
+
+  test-order-service:
+    needs: [detect-changes, lint]
+    if: needs.detect-changes.outputs.order-service == 'true' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: orders_test
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        working-directory: services/order-service
+        run: npm ci
+
+      - name: Run tests
+        working-directory: services/order-service
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/orders_test
+          REDIS_URL: redis://localhost:6379
+        run: npm test -- --coverage
+
+  test-api-gateway:
+    needs: [detect-changes, lint]
+    if: needs.detect-changes.outputs.api-gateway == 'true' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        working-directory: services/api-gateway
+        run: npm ci
+
+      - name: Run tests
+        working-directory: services/api-gateway
+        env:
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-secret
+        run: npm test -- --coverage
+
+  # Build Docker images
+  build-images:
+    needs: [test-user-service, test-product-service, test-cart-service, test-payment-service, test-order-service, test-api-gateway]
+    if: always() && !contains(needs.*.result, 'failure')
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - user-service
+          - product-service
+          - cart-service
+          - payment-service
+          - order-service
+          - api-gateway
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: services/${{ matrix.service }}
+          file: services/${{ matrix.service }}/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.ECR_REGISTRY }}/ecommerce/${{ matrix.service }}:${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/ecommerce/${{ matrix.service }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_ENV=production
+
+  # Validate Kubernetes manifests
+  validate-k8s:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.kubernetes == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Lint Helm charts
+        run: |
+          helm lint helm/charts/ecommerce
+
+      - name: Validate Kubernetes manifests
+        uses: instrumenta/kubeval-action@master
+        with:
+          files: k8s
+
+      - name: Run Kustomize build
+        run: |
+          for env in dev staging prod; do
+            echo "Building kustomize overlay for $env"
+            kubectl kustomize k8s/kustomize/overlays/$env > /dev/null
+          done
+
+  # Validate Terraform
+  validate-terraform:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.terraform == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.6.0'
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive terraform/
+
+      - name: Terraform Init (modules)
+        run: |
+          for module in terraform/modules/*/; do
+            echo "Initializing $module"
+            terraform -chdir=$module init -backend=false
+          done
+
+      - name: Terraform Validate (modules)
+        run: |
+          for module in terraform/modules/*/; do
+            echo "Validating $module"
+            terraform -chdir=$module validate
+          done
+
+  # Summary job
+  ci-summary:
+    needs: [build-images, validate-k8s, validate-terraform]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: CI Summary
+        run: |
+          echo "## CI Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Images | ${{ needs.build-images.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Validate K8s | ${{ needs.validate-k8s.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Validate Terraform | ${{ needs.validate-terraform.result }} |" >> $GITHUB_STEP_SUMMARY
