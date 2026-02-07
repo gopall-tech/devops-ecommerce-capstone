@@ -1,0 +1,142 @@
+# Deployment Playbook
+---
+- name: Deploy E-Commerce Application
+  hosts: "{{ target_hosts | default('webservers') }}"
+  become: true
+  serial: "{{ serial_count | default('25%') }}"
+  max_fail_percentage: 0
+  vars_files:
+    - ../vars/common.yml
+    - ../vars/deploy.yml
+  vars:
+    deployment_timestamp: "{{ ansible_date_time.epoch }}"
+    app_version: "{{ version | default('latest') }}"
+    rollback_enabled: true
+
+  pre_tasks:
+    - name: Verify deployment requirements
+      assert:
+        that:
+          - app_version is defined
+          - ecr_registry is defined
+        fail_msg: "Required variables not set"
+
+    - name: Create deployment directory
+      file:
+        path: "/opt/ecommerce/releases/{{ deployment_timestamp }}"
+        state: directory
+        owner: ecommerce
+        group: ecommerce
+        mode: '0755'
+
+    - name: Record current version for rollback
+      shell: |
+        readlink -f /opt/ecommerce/current || echo "none"
+      register: previous_version
+      changed_when: false
+
+  tasks:
+    - name: Pull Docker images
+      docker_image:
+        name: "{{ ecr_registry }}/ecommerce/{{ item }}:{{ app_version }}"
+        source: pull
+        force_source: yes
+      loop: "{{ services }}"
+      register: pull_result
+
+    - name: Stop current services
+      systemd:
+        name: "ecommerce-{{ item }}"
+        state: stopped
+      loop: "{{ services }}"
+      ignore_errors: yes
+
+    - name: Deploy new configuration
+      template:
+        src: "../templates/{{ item }}.service.j2"
+        dest: "/etc/systemd/system/ecommerce-{{ item }}.service"
+        owner: root
+        group: root
+        mode: '0644'
+      loop: "{{ services }}"
+      notify: Reload systemd
+
+    - name: Update symlink to new release
+      file:
+        src: "/opt/ecommerce/releases/{{ deployment_timestamp }}"
+        dest: "/opt/ecommerce/current"
+        state: link
+        force: yes
+
+    - name: Start services
+      systemd:
+        name: "ecommerce-{{ item }}"
+        state: started
+        enabled: yes
+      loop: "{{ services }}"
+
+    - name: Wait for services to be healthy
+      uri:
+        url: "http://localhost:{{ item.port }}/health"
+        status_code: 200
+        timeout: 30
+      register: health_check
+      until: health_check.status == 200
+      retries: 10
+      delay: 5
+      loop: "{{ service_ports }}"
+
+    - name: Clean up old releases (keep last 5)
+      shell: |
+        cd /opt/ecommerce/releases
+        ls -t | tail -n +6 | xargs -r rm -rf
+      changed_when: false
+
+  handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+  rescue:
+    - name: Rollback on failure
+      when: rollback_enabled | bool
+      block:
+        - name: Stop failed services
+          systemd:
+            name: "ecommerce-{{ item }}"
+            state: stopped
+          loop: "{{ services }}"
+          ignore_errors: yes
+
+        - name: Restore previous symlink
+          file:
+            src: "{{ previous_version.stdout }}"
+            dest: "/opt/ecommerce/current"
+            state: link
+            force: yes
+          when: previous_version.stdout != "none"
+
+        - name: Start previous version
+          systemd:
+            name: "ecommerce-{{ item }}"
+            state: started
+          loop: "{{ services }}"
+          when: previous_version.stdout != "none"
+
+        - name: Send failure notification
+          uri:
+            url: "{{ slack_webhook_url }}"
+            method: POST
+            body_format: json
+            body:
+              text: "Deployment failed and rolled back on {{ inventory_hostname }}"
+
+  post_tasks:
+    - name: Send deployment success notification
+      uri:
+        url: "{{ slack_webhook_url }}"
+        method: POST
+        body_format: json
+        body:
+          text: "Deployment successful on {{ inventory_hostname }} - Version {{ app_version }}"
+      when: slack_webhook_url is defined

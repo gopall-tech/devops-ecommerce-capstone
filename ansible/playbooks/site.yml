@@ -1,0 +1,68 @@
+# Main Site Playbook
+---
+- name: E-Commerce Platform Configuration
+  hosts: all
+  become: true
+  vars_files:
+    - ../vars/common.yml
+  pre_tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: Gather facts
+      setup:
+
+  roles:
+    - role: common
+      tags: [common, always]
+
+- name: Configure Web Servers
+  hosts: webservers
+  become: true
+  vars_files:
+    - ../vars/common.yml
+    - ../vars/webservers.yml
+  roles:
+    - role: nginx
+      tags: [nginx, web]
+    - role: nodejs
+      tags: [nodejs, web]
+
+- name: Configure Database Servers
+  hosts: databases
+  become: true
+  vars_files:
+    - ../vars/common.yml
+    - ../vars/databases.yml
+  roles:
+    - role: postgresql
+      tags: [postgresql, database]
+    - role: redis
+      tags: [redis, database]
+
+- name: Configure Monitoring
+  hosts: monitoring
+  become: true
+  vars_files:
+    - ../vars/common.yml
+    - ../vars/monitoring.yml
+  roles:
+    - role: prometheus
+      tags: [prometheus, monitoring]
+    - role: grafana
+      tags: [grafana, monitoring]
+    - role: alertmanager
+      tags: [alertmanager, monitoring]
+
+- name: Configure Load Balancers
+  hosts: loadbalancers
+  become: true
+  vars_files:
+    - ../vars/common.yml
+    - ../vars/loadbalancers.yml
+  roles:
+    - role: haproxy
+      tags: [haproxy, loadbalancer]
