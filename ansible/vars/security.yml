@@ -1,0 +1,26 @@
+# Security Variables
+---
+ssh_port: 22
+ssh_permit_root_login: "no"
+ssh_password_authentication: "no"
+ssh_max_auth_tries: 3
+ssh_client_alive_interval: 300
+ssh_client_alive_count_max: 2
+
+fail2ban_bantime: 3600
+fail2ban_findtime: 600
+fail2ban_maxretry: 5
+fail2ban_ignoreip: "127.0.0.1/8 10.0.0.0/8"
+
+pass_max_days: 90
+pass_min_days: 7
+pass_warn_age: 14
+pass_min_len: 12
+
+audit_rules:
+  - "-w /etc/passwd -p wa -k user_changes"
+  - "-w /etc/shadow -p wa -k shadow_changes"
+  - "-w /etc/sudoers -p wa -k sudoers_changes"
+  - "-w /var/log/auth.log -p wa -k auth_log"
+  - "-a always,exit -F arch=b64 -S execve -k commands"
+  - "-w /opt/ecommerce -p wa -k app_changes"

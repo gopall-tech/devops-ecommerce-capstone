@@ -1,0 +1,46 @@
+# Common Variables
+---
+app_name: ecommerce
+app_user: ecommerce
+app_group: ecommerce
+app_base_dir: /opt/ecommerce
+
+aws_region: us-east-1
+ecr_registry: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
+
+services:
+  - user-service
+  - product-service
+  - cart-service
+  - payment-service
+  - order-service
+  - api-gateway
+
+service_ports:
+  - { name: user-service, port: 3000 }
+  - { name: product-service, port: 3001 }
+  - { name: cart-service, port: 3002 }
+  - { name: payment-service, port: 3003 }
+  - { name: order-service, port: 3004 }
+  - { name: api-gateway, port: 3005 }
+
+allowed_ports:
+  - 22
+  - 80
+  - 443
+  - 3000
+  - 3001
+  - 3002
+  - 3003
+  - 3004
+  - 3005
+  - 9090
+  - 3100
+  - 9200
+
+log_dir: /var/log/ecommerce
+log_retention_days: 30
+node_exporter_version: "1.7.0"
+node_exporter_port: 9100
+ssh_port: 22
+timezone: UTC

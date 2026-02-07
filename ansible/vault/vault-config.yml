@@ -1,0 +1,21 @@
+# Ansible Vault Configuration
+# Usage: ansible-vault encrypt/decrypt/edit vault-secrets.yml
+---
+# AWS Secrets Manager Integration
+aws_secrets:
+  region: us-east-1
+  secrets_prefix: ecommerce
+
+# HashiCorp Vault Integration (if used)
+hashicorp_vault:
+  enabled: false
+  addr: https://vault.example.com:8200
+  auth_method: aws
+  role: ecommerce-role
+  secrets_engine: secret
+  secrets_path: ecommerce
+
+# Encryption settings
+encryption:
+  algorithm: AES256
+  key_rotation_days: 90

@@ -1,0 +1,19 @@
+# Deployment Variables
+---
+deployment_strategy: rolling
+serial_count: "25%"
+max_fail_percentage: 0
+
+docker_registry: "{{ ecr_registry }}"
+docker_pull_policy: always
+
+health_check_retries: 10
+health_check_delay: 5
+health_check_timeout: 30
+
+rollback_enabled: true
+keep_releases: 5
+
+slack_webhook_url: "{{ lookup('env', 'SLACK_WEBHOOK_URL') }}"
+notify_on_success: true
+notify_on_failure: true
