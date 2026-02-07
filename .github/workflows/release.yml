@@ -1,0 +1,221 @@
+# Release Management Workflow
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.2.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Pre-release?'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+
+jobs:
+  # Determine version
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+
+  # Run full test suite
+  test:
+    needs: prepare
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run all tests
+        run: npm run test:all -- --coverage
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-secret
+          JWT_REFRESH_SECRET: test-refresh-secret
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  # Build and tag release images
+  build-release:
+    needs: [prepare, test]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - user-service
+          - product-service
+          - cart-service
+          - payment-service
+          - order-service
+          - api-gateway
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push release image
+        uses: docker/build-push-action@v5
+        with:
+          context: services/${{ matrix.service }}
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/ecommerce/${{ matrix.service }}:${{ needs.prepare.outputs.version }}
+            ${{ env.ECR_REGISTRY }}/ecommerce/${{ matrix.service }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: |
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+  # Create GitHub release
+  create-release:
+    needs: [prepare, build-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREVIOUS_TAG" ]; then
+            CHANGELOG=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges -20)
+          fi
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: release } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: '${{ needs.prepare.outputs.tag }}',
+              name: 'Release ${{ needs.prepare.outputs.version }}',
+              body: `## E-Commerce Platform ${{ needs.prepare.outputs.version }}
+
+            ### Changes
+            ${{ steps.changelog.outputs.changelog }}
+
+            ### Docker Images
+            | Service | Image |
+            |---------|-------|
+            | User Service | \`${{ env.ECR_REGISTRY }}/ecommerce/user-service:${{ needs.prepare.outputs.version }}\` |
+            | Product Service | \`${{ env.ECR_REGISTRY }}/ecommerce/product-service:${{ needs.prepare.outputs.version }}\` |
+            | Cart Service | \`${{ env.ECR_REGISTRY }}/ecommerce/cart-service:${{ needs.prepare.outputs.version }}\` |
+            | Payment Service | \`${{ env.ECR_REGISTRY }}/ecommerce/payment-service:${{ needs.prepare.outputs.version }}\` |
+            | Order Service | \`${{ env.ECR_REGISTRY }}/ecommerce/order-service:${{ needs.prepare.outputs.version }}\` |
+            | API Gateway | \`${{ env.ECR_REGISTRY }}/ecommerce/api-gateway:${{ needs.prepare.outputs.version }}\` |
+
+            ### Deployment
+            \`\`\`bash
+            # Update ArgoCD applications with new version
+            argocd app set ecommerce-prod -p global.imageTag=${{ needs.prepare.outputs.version }}
+            argocd app sync ecommerce-prod
+            \`\`\`
+            `,
+              draft: false,
+              prerelease: ${{ github.event.inputs.prerelease || false }}
+            });
+            console.log(`Release created: ${release.html_url}`);
+
+  # Notify
+  notify:
+    needs: [prepare, create-release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Slack notification
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
+          payload: |
+            {
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "New Release: v${{ needs.prepare.outputs.version }}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "E-Commerce Platform *v${{ needs.prepare.outputs.version }}* has been released and images pushed to ECR."
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
