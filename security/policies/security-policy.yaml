@@ -1,0 +1,125 @@
+# Security Policy Configuration
+---
+version: "1.0"
+name: ecommerce-security-policy
+
+# Vulnerability thresholds
+vulnerabilities:
+  severity_threshold: HIGH
+  max_critical: 0
+  max_high: 5
+  max_medium: 20
+  fail_on_unfixed: false
+
+# Container security
+container:
+  # Base image requirements
+  allowed_base_images:
+    - node:20-alpine
+    - node:20-slim
+    - gcr.io/distroless/nodejs20-debian12
+
+  # Prohibited packages
+  prohibited_packages:
+    - curl
+    - wget
+    - netcat
+    - telnet
+    - ssh
+
+  # Required labels
+  required_labels:
+    - maintainer
+    - version
+    - description
+
+  # Security settings
+  run_as_non_root: true
+  read_only_root_fs: true
+  no_new_privileges: true
+  drop_all_capabilities: true
+
+# Kubernetes security
+kubernetes:
+  # Pod Security Standards
+  pod_security_standard: restricted
+
+  # Required security context
+  required_security_context:
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+  # Resource limits required
+  require_resource_limits: true
+
+  # Network policies required
+  require_network_policies: true
+
+  # Prohibited
+  prohibited:
+    - hostNetwork: true
+    - hostPID: true
+    - hostIPC: true
+    - privileged: true
+
+# Code security
+code:
+  # SAST rules
+  sast:
+    enabled: true
+    languages:
+      - typescript
+      - javascript
+    rules:
+      - no-eval
+      - no-hardcoded-credentials
+      - sql-injection
+      - xss
+      - command-injection
+      - path-traversal
+
+  # Secret detection
+  secrets:
+    enabled: true
+    block_on_detection: true
+
+  # Dependency scanning
+  dependencies:
+    enabled: true
+    license_allowlist:
+      - MIT
+      - Apache-2.0
+      - BSD-2-Clause
+      - BSD-3-Clause
+      - ISC
+      - 0BSD
+
+# Infrastructure security
+infrastructure:
+  terraform:
+    # Required encryption
+    require_encryption:
+      - aws_s3_bucket
+      - aws_rds_instance
+      - aws_ebs_volume
+
+    # Required logging
+    require_logging:
+      - aws_s3_bucket
+      - aws_cloudtrail
+
+    # Prohibited resources
+    prohibited:
+      - aws_iam_user_policy
+      - aws_iam_group_policy
+
+# Compliance
+compliance:
+  frameworks:
+    - SOC2
+    - PCI-DSS
+    - GDPR

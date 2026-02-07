@@ -1,0 +1,43 @@
+# Trivy Configuration
+---
+# Global settings
+format: table
+exit-code: 1
+severity: CRITICAL,HIGH
+ignore-unfixed: true
+
+# Vulnerability scanning
+vuln-type:
+  - os
+  - library
+
+# Secret scanning
+secret:
+  config: security/trivy/secret-config.yaml
+
+# Misconfiguration scanning
+misconfig:
+  scanners:
+    - dockerfile
+    - kubernetes
+    - terraform
+
+# Skip files/directories
+skip-files:
+  - "**/*_test.go"
+  - "**/test/**"
+  - "**/tests/**"
+  - "**/*.md"
+
+skip-dirs:
+  - node_modules
+  - .git
+  - vendor
+  - coverage
+
+# Cache settings
+cache-dir: /tmp/trivy-cache
+cache-backend: fs
+
+# Report settings
+list-all-pkgs: false

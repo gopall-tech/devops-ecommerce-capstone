@@ -1,0 +1,26 @@
+# Snyk Policy File
+# https://docs.snyk.io/snyk-cli/test-for-vulnerabilities/the-.snyk-file
+version: v1.25.0
+
+# Ignore rules
+ignore:
+  # Example: Ignore a specific vulnerability for 30 days
+  # SNYK-JS-EXAMPLE-1234567:
+  #   - '*':
+  #       reason: 'No fix available, low risk'
+  #       expires: 2026-03-07T00:00:00.000Z
+
+# Patch rules (for patching vulnerable dependencies)
+patch: {}
+
+# Exclude patterns
+exclude:
+  global:
+    - '**/node_modules/**'
+    - '**/test/**'
+    - '**/tests/**'
+    - '**/*.test.ts'
+    - '**/*.spec.ts'
+    - '**/coverage/**'
+    - '**/dist/**'
+    - '**/build/**'
