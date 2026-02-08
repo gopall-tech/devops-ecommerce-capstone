@@ -1,0 +1,148 @@
+# Alertmanager Configuration
+global:
+  resolve_timeout: 5m
+  smtp_from: 'alerts@ecommerce.example.com'
+  smtp_smarthost: 'email-smtp.us-east-1.amazonaws.com:587'
+  smtp_auth_username: 'AKIAIOSFODNN7EXAMPLE'
+  smtp_auth_password: '<SES_SMTP_PASSWORD>'
+  smtp_require_tls: true
+  slack_api_url: '<SLACK_WEBHOOK_URL>'
+  pagerduty_url: 'https://events.pagerduty.com/v2/enqueue'
+
+# Templates
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Inhibition rules
+inhibit_rules:
+  # If a critical alert fires, suppress warnings for the same service
+  - source_matchers:
+      - severity = critical
+    target_matchers:
+      - severity = warning
+    equal:
+      - service
+      - alertname
+
+  # If a cluster-wide alert fires, suppress per-service alerts
+  - source_matchers:
+      - scope = cluster
+    target_matchers:
+      - scope = service
+
+# Routing tree
+route:
+  receiver: 'default-slack'
+  group_by: ['alertname', 'service', 'namespace']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+  routes:
+    # Critical alerts -> PagerDuty + Slack
+    - matchers:
+        - severity = critical
+      receiver: 'pagerduty-critical'
+      group_wait: 10s
+      repeat_interval: 1h
+      continue: true
+
+    - matchers:
+        - severity = critical
+      receiver: 'slack-critical'
+      group_wait: 10s
+
+    # Warning alerts -> Slack
+    - matchers:
+        - severity = warning
+      receiver: 'slack-warning'
+      group_wait: 1m
+      repeat_interval: 4h
+
+    # Business alerts -> dedicated channel
+    - matchers:
+        - team = product
+      receiver: 'slack-business'
+      group_wait: 5m
+
+    # Database alerts -> DBA team
+    - matchers:
+        - team = dba
+      receiver: 'slack-dba'
+
+    # DevOps alerts
+    - matchers:
+        - team = devops
+      receiver: 'slack-devops'
+
+# Receivers
+receivers:
+  - name: 'default-slack'
+    slack_configs:
+      - channel: '#ecommerce-alerts'
+        send_resolved: true
+        title: '{{ .GroupLabels.alertname }}'
+        text: >-
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          *Service:* {{ .Labels.service }}
+          {{ end }}
+
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - routing_key: '<PAGERDUTY_ROUTING_KEY>'
+        severity: '{{ .CommonLabels.severity }}'
+        description: '{{ .CommonAnnotations.summary }}'
+        details:
+          firing: '{{ template "pagerduty.default.description" . }}'
+
+  - name: 'slack-critical'
+    slack_configs:
+      - channel: '#ecommerce-critical'
+        send_resolved: true
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+        title: '[CRITICAL] {{ .GroupLabels.alertname }}'
+        text: >-
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Service:* {{ .Labels.service }}
+          *Namespace:* {{ .Labels.kubernetes_namespace }}
+          {{ end }}
+
+  - name: 'slack-warning'
+    slack_configs:
+      - channel: '#ecommerce-warnings'
+        send_resolved: true
+        color: '{{ if eq .Status "firing" }}warning{{ else }}good{{ end }}'
+        title: '[WARNING] {{ .GroupLabels.alertname }}'
+        text: >-
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          {{ end }}
+
+  - name: 'slack-business'
+    slack_configs:
+      - channel: '#ecommerce-business'
+        send_resolved: true
+        title: '[Business] {{ .GroupLabels.alertname }}'
+        text: >-
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}
+
+  - name: 'slack-dba'
+    slack_configs:
+      - channel: '#ecommerce-dba'
+        send_resolved: true
+        title: '[Database] {{ .GroupLabels.alertname }}'
+
+  - name: 'slack-devops'
+    slack_configs:
+      - channel: '#ecommerce-devops'
+        send_resolved: true
+        title: '[DevOps] {{ .GroupLabels.alertname }}'
