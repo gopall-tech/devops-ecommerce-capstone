@@ -1,0 +1,194 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "ecommerce-overview",
+    "title": "E-Commerce Platform Overview",
+    "tags": ["ecommerce", "overview"],
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Total Request Rate",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{namespace=\"ecommerce-prod\"}[5m]))",
+            "legendFormat": "requests/sec"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 1000 },
+                { "color": "red", "value": 5000 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Error Rate",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{namespace=\"ecommerce-prod\",status=~\"5..\"}[5m])) / sum(rate(http_requests_total{namespace=\"ecommerce-prod\"}[5m])) * 100",
+            "legendFormat": "error %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 1 },
+                { "color": "red", "value": 5 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "P99 Latency",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{namespace=\"ecommerce-prod\"}[5m])) by (le))",
+            "legendFormat": "p99"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 0.5 },
+                { "color": "red", "value": 2 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Active Pods",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+        "targets": [
+          {
+            "expr": "count(kube_pod_status_phase{namespace=\"ecommerce-prod\",phase=\"Running\"})",
+            "legendFormat": "running pods"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Request Rate by Service",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{namespace=\"ecommerce-prod\"}[5m])) by (service)",
+            "legendFormat": "{{ service }}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "reqps" }
+        }
+      },
+      {
+        "id": 6,
+        "title": "Latency by Service (P95)",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{namespace=\"ecommerce-prod\"}[5m])) by (le, service))",
+            "legendFormat": "{{ service }}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "s" }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Error Rate by Service",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{namespace=\"ecommerce-prod\",status=~\"5..\"}[5m])) by (service)",
+            "legendFormat": "{{ service }}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "reqps" }
+        }
+      },
+      {
+        "id": 8,
+        "title": "CPU Usage by Service",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+        "targets": [
+          {
+            "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"ecommerce-prod\"}[5m])) by (pod)",
+            "legendFormat": "{{ pod }}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "percentunit" }
+        }
+      },
+      {
+        "id": 9,
+        "title": "Memory Usage by Service",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+        "targets": [
+          {
+            "expr": "sum(container_memory_usage_bytes{namespace=\"ecommerce-prod\"}) by (pod)",
+            "legendFormat": "{{ pod }}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "bytes" }
+        }
+      },
+      {
+        "id": 10,
+        "title": "Orders per Minute",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+        "targets": [
+          {
+            "expr": "sum(rate(orders_created_total{namespace=\"ecommerce-prod\"}[5m])) * 60",
+            "legendFormat": "orders/min"
+          },
+          {
+            "expr": "sum(rate(payment_success_total{namespace=\"ecommerce-prod\"}[5m])) * 60",
+            "legendFormat": "payments/min"
+          }
+        ]
+      }
+    ]
+  }
+}
