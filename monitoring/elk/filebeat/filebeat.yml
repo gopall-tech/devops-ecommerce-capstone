@@ -1,0 +1,62 @@
+# Filebeat Configuration for Kubernetes
+filebeat.autodiscover:
+  providers:
+    - type: kubernetes
+      node: ${NODE_NAME}
+      hints.enabled: true
+      hints.default_config:
+        type: container
+        paths:
+          - /var/log/containers/*${data.kubernetes.container.id}.log
+
+      templates:
+        # E-Commerce services template
+        - condition:
+            contains:
+              kubernetes.labels.app_kubernetes_io/part-of: ecommerce
+          config:
+            - type: container
+              paths:
+                - /var/log/containers/*${data.kubernetes.container.id}.log
+              processors:
+                - decode_json_fields:
+                    fields: ["message"]
+                    target: ""
+                    overwrite_keys: true
+              fields:
+                service: ${data.kubernetes.labels.app_kubernetes_io/name}
+                environment: ${data.kubernetes.namespace}
+              fields_under_root: true
+
+# Processors
+processors:
+  - add_kubernetes_metadata:
+      host: ${NODE_NAME}
+      matchers:
+        - logs_path:
+            logs_path: "/var/log/containers/"
+  - add_cloud_metadata: ~
+  - add_host_metadata: ~
+  - drop_fields:
+      fields: ["agent.ephemeral_id", "agent.hostname", "agent.id", "agent.version", "ecs"]
+      ignore_missing: true
+
+# Output to Logstash
+output.logstash:
+  hosts: ["logstash:5044"]
+  bulk_max_size: 2048
+  worker: 2
+
+# Logging
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644
+
+# Monitoring
+monitoring.enabled: true
+monitoring.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]
