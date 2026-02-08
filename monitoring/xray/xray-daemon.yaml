@@ -1,0 +1,100 @@
+# AWS X-Ray Daemon DaemonSet
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: xray-daemon
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: xray-daemon
+    app.kubernetes.io/component: tracing
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: xray-daemon
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: xray-daemon
+        app.kubernetes.io/component: tracing
+    spec:
+      serviceAccountName: xray-daemon
+      containers:
+        - name: xray-daemon
+          image: public.ecr.aws/xray/aws-xray-daemon:latest
+          ports:
+            - name: xray-ingest
+              containerPort: 2000
+              protocol: UDP
+            - name: xray-tcp
+              containerPort: 2000
+              protocol: TCP
+          env:
+            - name: AWS_REGION
+              value: us-east-1
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            readOnlyRootFilesystem: true
+      volumes:
+        - name: config
+          configMap:
+            name: xray-config
+---
+# X-Ray Daemon Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: xray-daemon
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: xray-daemon
+spec:
+  type: ClusterIP
+  ports:
+    - name: xray-ingest
+      port: 2000
+      targetPort: 2000
+      protocol: UDP
+    - name: xray-tcp
+      port: 2000
+      targetPort: 2000
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: xray-daemon
+---
+# X-Ray Service Account with IRSA
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: xray-daemon
+  namespace: monitoring
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/ecommerce-xray-daemon
+---
+# X-Ray Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: xray-config
+  namespace: monitoring
+data:
+  xray-daemon.yaml: |
+    TotalBufferSizeMB: 24
+    Socket:
+      UDPAddress: "0.0.0.0:2000"
+      TCPAddress: "0.0.0.0:2000"
+    Logging:
+      LogRotation: true
+      LogLevel: "prod"
+    LocalMode: false
+    ResourceARN: ""
+    RoleARN: ""
+    NoVerifySSL: false
+    ProxyAddress: ""
+    Region: "us-east-1"
+    Version: 2
