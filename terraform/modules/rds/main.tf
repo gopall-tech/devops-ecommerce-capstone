@@ -96,7 +96,7 @@ resource "aws_db_instance" "main" {
   kms_key_id           = aws_kms_key.rds.arn
 
   db_name  = replace(var.project_name, "-", "_")
-  username = "admin"
+  username = "dbadmin"
   manage_master_user_password = var.manage_master_user_password
 
   vpc_security_group_ids = [aws_security_group.rds.id]

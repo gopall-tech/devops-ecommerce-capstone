@@ -14,7 +14,11 @@
     "build": "docker-compose build",
     "logs": "docker-compose logs -f",
     "test": "npm run test --workspaces",
+    "test:coverage": "npm run test --workspaces -- --coverage",
+    "test:integration": "npm run test:integration --workspaces --if-present",
+    "test:all": "npm run test --workspaces",
     "lint": "npm run lint --workspaces",
+    "format:check": "npx prettier --check \"services/**/*.ts\"",
     "migrate": "npm run migrate --workspaces --if-present",
     "seed": "npm run seed --workspaces --if-present",
     "clean": "docker-compose down -v --remove-orphans"

@@ -1,0 +1,31 @@
+checks:
+  # Resources
+  cpuRequestsMissing: warning
+  cpuLimitsMissing: warning
+  memoryRequestsMissing: warning
+  memoryLimitsMissing: warning
+  # Images
+  tagNotSpecified: danger
+  pullPolicyNotAlways: warning
+  # Health Checks
+  readinessProbeMissing: warning
+  livenessProbeMissing: warning
+  # Networking
+  hostNetworkSet: danger
+  hostPortSet: warning
+  # Security
+  runAsRootAllowed: warning
+  runAsPrivileged: danger
+  notReadOnlyRootFilesystem: warning
+  privilegeEscalationAllowed: danger
+  insecureCapabilities: warning
+  dangerousCapabilities: danger
+  hostIPCSet: danger
+  hostPIDSet: danger
+
+exemptions:
+  - controllerNames:
+      - kube-system
+    rules:
+      - runAsRootAllowed
+      - notReadOnlyRootFilesystem

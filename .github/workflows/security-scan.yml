@@ -140,10 +140,10 @@ jobs:
         run: |
           for service in services/*/; do
             echo "Checking licenses for $service"
-            cd $service
+            pushd "$service"
             npm ci
             license-checker --production --onlyAllow "MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD;CC0-1.0;Unlicense" || exit 1
-            cd ../..
+            popd
           done
 
   # Dependency audit
@@ -161,10 +161,10 @@ jobs:
         run: |
           for service in services/*/; do
             echo "Auditing $service"
-            cd $service
+            pushd "$service"
             npm ci
             npm audit --audit-level=high || true
-            cd ../..
+            popd
           done
 
   # SBOM generation

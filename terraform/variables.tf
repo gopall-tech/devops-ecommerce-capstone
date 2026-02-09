@@ -81,7 +81,7 @@ variable "eks_node_groups" {
 variable "rds_engine_version" {
   description = "PostgreSQL engine version"
   type        = string
-  default     = "15.4"
+  default     = "15.10"
 }
 
 variable "rds_instance_class" {

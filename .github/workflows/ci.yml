@@ -185,6 +185,7 @@ jobs:
         with:
           files: services/product-service/coverage/lcov.info
           flags: product-service
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   test-cart-service:
     needs: [detect-changes, lint]

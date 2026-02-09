@@ -14,7 +14,7 @@ module "infrastructure" {
   vpc_cidr = "10.0.0.0/16"
 
   # EKS - Use t3.small SPOT instances (cheapest viable option)
-  eks_cluster_version = "1.28"
+  eks_cluster_version = "1.29"
   eks_node_groups = {
     general = {
       instance_types = ["t3.small"]
