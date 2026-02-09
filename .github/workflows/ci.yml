@@ -72,7 +72,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Run ESLint
         run: npm run lint
@@ -119,7 +119,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: services/user-service
-        run: npm ci
+        run: npm install
 
       - name: Run database migrations
         working-directory: services/user-service
@@ -171,7 +171,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: services/product-service
-        run: npm ci
+        run: npm install
 
       - name: Run tests
         working-directory: services/product-service
@@ -207,7 +207,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: services/cart-service
-        run: npm ci
+        run: npm install
 
       - name: Run tests
         working-directory: services/cart-service
@@ -239,7 +239,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: services/payment-service
-        run: npm ci
+        run: npm install
 
       - name: Run tests
         working-directory: services/payment-service
@@ -276,7 +276,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: services/order-service
-        run: npm ci
+        run: npm install
 
       - name: Run tests
         working-directory: services/order-service
@@ -305,7 +305,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: services/api-gateway
-        run: npm ci
+        run: npm install
 
       - name: Run tests
         working-directory: services/api-gateway

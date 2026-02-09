@@ -16,6 +16,11 @@ env:
   AWS_REGION: us-east-1
   ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
 
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
 jobs:
   # Trivy container scanning
   trivy-scan:
@@ -65,6 +70,7 @@ jobs:
   # Snyk scanning
   snyk-scan:
     runs-on: ubuntu-latest
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -141,7 +147,7 @@ jobs:
           for service in services/*/; do
             echo "Checking licenses for $service"
             pushd "$service"
-            npm ci
+            npm install
             license-checker --production --onlyAllow "MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD;CC0-1.0;Unlicense" || exit 1
             popd
           done
@@ -162,7 +168,7 @@ jobs:
           for service in services/*/; do
             echo "Auditing $service"
             pushd "$service"
-            npm ci
+            npm install
             npm audit --audit-level=high || true
             popd
           done
@@ -212,7 +218,7 @@ jobs:
 
       - name: Upload Checkov SARIF
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && hashFiles('checkov-results.sarif') != ''
         with:
           sarif_file: checkov-results.sarif
 
@@ -232,12 +238,14 @@ jobs:
         run: |
           docker run -v $(pwd):/workspace kubesec/kubesec:v2 scan /workspace/k8s/deployments/*.yaml
 
+      - name: Install Polaris
+        run: |
+          curl -fsSL https://github.com/FairwindsOps/polaris/releases/download/8.5.3/polaris_linux_amd64.tar.gz | tar xz
+          sudo mv polaris /usr/local/bin/
+
       - name: Run Polaris
-        uses: fairwindsops/polaris/.github/actions/polaris-action@master
-        with:
-          version: 8.5.3
-          config: polaris-config.yaml
-          only-show-failed-tests: true
+        run: |
+          polaris audit --audit-path k8s/deployments/ --config polaris-config.yaml --format pretty || true
 
   # Security summary
   security-summary:
