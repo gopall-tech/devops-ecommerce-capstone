@@ -9,7 +9,9 @@ resource "aws_wafv2_web_acl" "main" {
   description = "WAF Web ACL for ${local.name}"
   scope       = "CLOUDFRONT"
 
-  default_action { allow {} }
+  default_action {
+    allow {}
+  }
 
   # AWS Managed Rules - Common Rule Set
   dynamic "rule" {
@@ -17,7 +19,9 @@ resource "aws_wafv2_web_acl" "main" {
     content {
       name     = "AWSManagedRulesCommonRuleSet"
       priority = 1
-      override_action { none {} }
+      override_action {
+        none {}
+      }
       statement {
         managed_rule_group_statement {
           vendor_name = "AWS"
@@ -38,7 +42,9 @@ resource "aws_wafv2_web_acl" "main" {
     content {
       name     = "AWSManagedRulesKnownBadInputsRuleSet"
       priority = 2
-      override_action { none {} }
+      override_action {
+        none {}
+      }
       statement {
         managed_rule_group_statement {
           vendor_name = "AWS"
@@ -59,7 +65,9 @@ resource "aws_wafv2_web_acl" "main" {
     content {
       name     = "AWSManagedRulesSQLiRuleSet"
       priority = 3
-      override_action { none {} }
+      override_action {
+        none {}
+      }
       statement {
         managed_rule_group_statement {
           vendor_name = "AWS"
@@ -78,7 +86,9 @@ resource "aws_wafv2_web_acl" "main" {
   rule {
     name     = "RateLimitRule"
     priority = 10
-    action { block {} }
+    action {
+      block {}
+    }
     statement {
       rate_based_statement {
         limit              = var.rate_limit
@@ -98,7 +108,9 @@ resource "aws_wafv2_web_acl" "main" {
     content {
       name     = "AWSManagedRulesAmazonIpReputationList"
       priority = 4
-      override_action { none {} }
+      override_action {
+        none {}
+      }
       statement {
         managed_rule_group_statement {
           vendor_name = "AWS"

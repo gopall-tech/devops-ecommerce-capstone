@@ -97,28 +97,28 @@ output "elasticache_configuration_endpoint" {
 # CloudFront Outputs
 output "cloudfront_distribution_id" {
   description = "ID of the CloudFront distribution"
-  value       = module.cloudfront.distribution_id
+  value       = var.enable_cloudfront ? module.cloudfront[0].distribution_id : ""
 }
 
 output "cloudfront_domain_name" {
   description = "Domain name of the CloudFront distribution"
-  value       = module.cloudfront.domain_name
+  value       = var.enable_cloudfront ? module.cloudfront[0].domain_name : ""
 }
 
 output "static_assets_bucket" {
   description = "S3 bucket for static assets"
-  value       = module.cloudfront.s3_bucket_name
+  value       = var.enable_cloudfront ? module.cloudfront[0].s3_bucket_name : ""
 }
 
 # WAF Outputs
 output "waf_web_acl_arn" {
   description = "ARN of the WAF Web ACL"
-  value       = module.waf.web_acl_arn
+  value       = var.enable_waf ? module.waf[0].web_acl_arn : ""
 }
 
 output "waf_web_acl_id" {
   description = "ID of the WAF Web ACL"
-  value       = module.waf.web_acl_id
+  value       = var.enable_waf ? module.waf[0].web_acl_id : ""
 }
 
 # Secrets Manager Outputs
@@ -155,6 +155,6 @@ output "infrastructure_summary" {
     eks_cluster = module.eks.cluster_name
     rds_endpoint = module.rds.db_instance_endpoint
     redis_endpoint = module.elasticache.cluster_endpoint
-    cloudfront_domain = module.cloudfront.domain_name
+    cloudfront_domain = var.enable_cloudfront ? module.cloudfront[0].domain_name : "disabled"
   }
 }

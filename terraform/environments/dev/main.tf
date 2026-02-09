@@ -53,5 +53,5 @@ output "rds_endpoint" {
 }
 
 output "redis_endpoint" {
-  value = module.infrastructure.redis_endpoint
+  value = module.infrastructure.elasticache_endpoint
 }
